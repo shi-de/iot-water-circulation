@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水循环监控系统</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg: #f4f7fb;
+            --surface: #ffffff;
+            --surface-soft: #eef4f8;
+            --ink: #1f2937;
+            --muted: #5f6b7a;
+            --line: #d9e2ec;
+            --primary: #0f766e;
+            --primary-strong: #115e59;
+            --success: #16803c;
+            --warning: #b7791f;
+            --danger: #b42318;
+            --shadow: 0 6px 12px rgba(31, 41, 55, 0.08);
+            --radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: "Microsoft Yahei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        button { font: inherit; }
+
+        .app {
+            width: min(1440px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 20px 0 28px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .title-block h1 {
+            margin: 0 0 6px;
+            font-size: 24px;
+            line-height: 1.2;
+        }
+
+        .title-block p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .status-strip {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 32px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface);
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+        }
+        .dot.ok { background: var(--success); }
+        .dot.warn { background: var(--warning); }
+        .dot.bad { background: var(--danger); }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 360px;
+            gap: 16px;
+        }
+
+        .main-col, .side-col {
+            display: grid;
+            gap: 16px;
+            align-content: start;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px 0;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.3;
+        }
+
+        .panel-note {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .chart-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tool-btn {
+            min-height: 30px;
+            padding: 0 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--surface-soft);
+            color: var(--ink);
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 160ms ease, border-color 160ms ease;
+        }
+        .tool-btn:hover { background: #e2ecf3; border-color: #c3d2df; }
+        .tool-btn:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.28); outline-offset: 2px; }
+        .tool-btn.danger { color: var(--danger); border-color: #f1c2bd; }
+        .tool-btn.danger:hover { background: #fdecea; border-color: #e9a9a2; }
+        .tool-btn.primary { color: #fff; background: var(--primary); border-color: var(--primary); }
+        .tool-btn.primary:hover { background: var(--primary-strong); border-color: var(--primary-strong); }
+        .tool-btn:disabled,
+        .tool-btn:disabled:hover {
+            opacity: 0.48;
+            cursor: not-allowed;
+            filter: grayscale(0.35);
+            background: var(--surface-soft);
+            border-color: var(--line);
+            color: var(--muted);
+        }
+
+        .badge {
+            display: inline-block;
+            min-width: 22px;
+            padding: 1px 7px;
+            margin-left: 6px;
+            border-radius: 999px;
+            background: var(--danger);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+        }
+        .badge.zero { background: var(--success); }
+        .badge.hidden { display: none; }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            padding: 16px 18px 18px;
+        }
+
+        .metric {
+            min-height: 98px;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface-soft);
+        }
+
+        .metric label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .metric strong {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+            color: var(--ink);
+            font-size: 26px;
+            line-height: 1.1;
+        }
+
+        .metric small {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .metric.state-ok strong { color: var(--success); }
+        .metric.state-warn strong { color: var(--warning); }
+        .metric.state-bad strong { color: var(--danger); }
+
+        .chart-wrap {
+            height: 420px;
+            padding: 14px 18px 18px;
+        }
+        .chart-wrap canvas { touch-action: none; cursor: grab; }
+        .chart-wrap canvas.dragging { cursor: grabbing; }
+
+        .alarm-code {
+            min-width: 74px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: var(--success);
+            color: #ffffff;
+            text-align: center;
+            font-weight: 700;
+        }
+        .alarm-code.warn { background: var(--danger); }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 16px 18px 12px;
+        }
+
+        .control-grid button {
+            min-height: 42px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: #ffffff;
+            cursor: pointer;
+            transition: background 160ms ease, transform 160ms ease;
+        }
+        .control-grid button:hover { transform: translateY(-1px); }
+        .control-grid button:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.28); outline-offset: 2px; }
+        .control-grid button:disabled {
+            opacity: 0.48;
+            cursor: not-allowed;
+            filter: grayscale(0.35);
+            transform: none;
+        }
+        .btn-on { background: var(--success); }
+        .btn-off { background: var(--danger); }
+        .btn-mode { grid-column: 1 / -1; background: var(--primary); }
+        .btn-mode:hover { background: var(--primary-strong); }
+
+        .feedback {
+            min-height: 24px;
+            margin: 0 18px 16px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .info-list {
+            display: grid;
+            gap: 10px;
+            padding: 16px 18px 18px;
+        }
+
+        .info-row {
+            display: grid;
+            grid-template-columns: 92px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            font-size: 14px;
+        }
+        .info-row span:first-child { color: var(--muted); }
+        .info-row span:last-child { overflow-wrap: anywhere; font-weight: 600; }
+
+        .event-list {
+            display: grid;
+            gap: 10px;
+            max-height: 260px;
+            overflow: auto;
+            padding: 16px 18px 18px;
+        }
+
+        .event {
+            display: grid;
+            gap: 4px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #fbfdff;
+            font-size: 13px;
+        }
+        .event strong { overflow-wrap: anywhere; }
+        .event time { color: var(--muted); }
+
+        .event.level-error { border-left: 3px solid var(--danger); }
+        .event.level-warn { border-left: 3px solid var(--warning); }
+        .event.level-info { border-left: 3px solid var(--primary); }
+
+        .raw-box {
+            margin: 16px 18px 18px;
+            min-height: 120px;
+            max-height: 220px;
+            overflow: auto;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #111827;
+            color: #e5e7eb;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .empty { color: var(--muted); font-size: 13px; }
+
+        .field { display: grid; gap: 5px; min-width: 0; }
+        .field label { color: var(--muted); font-size: 12px; }
+        .field input {
+            width: 100%;
+            min-height: 34px;
+            padding: 6px 8px;
+            border: 1px solid var(--line);
+            border-radius: 5px;
+            background: #fff;
+            color: var(--ink);
+            font: inherit;
+            font-size: 13px;
+        }
+        .field input:disabled { background: #edf2f6; color: var(--muted); }
+
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: end;
+            padding: 14px 18px;
+        }
+        .filter-row .field { min-width: 150px; flex: 1 1 180px; }
+        .filter-row.compact { padding-bottom: 4px; }
+
+        .threshold-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; padding: 12px 18px 4px; align-items: end; }
+
+        @media (max-width: 1080px) {
+            .layout { grid-template-columns: 1fr; }
+            .side-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 820px) {
+            .app { width: min(100vw - 20px, 1440px); padding-top: 12px; }
+            .topbar { align-items: flex-start; flex-direction: column; }
+            .status-strip { justify-content: flex-start; }
+            .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .side-col { grid-template-columns: 1fr; }
+            .chart-wrap { height: 330px; }
+        }
+
+        @media (max-width: 520px) {
+            .metric-grid, .control-grid { grid-template-columns: 1fr; }
+            .alarm-code { width: 100%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .control-grid button { transition: none; }
+            .control-grid button:hover { transform: none; }
+        }
+    </style>
+</head>
+<body>
+<main class="app">
+    <header class="topbar">
+        <div class="title-block">
+            <h1>水循环监控系统</h1>
+            <p>设备上报主题：<strong id="mqtt_topic_title">--</strong></p>
+        </div>
+        <div class="status-strip">
+            <span class="pill"><span id="api_dot" class="dot"></span>后端 <strong id="api_state">检测中</strong></span>
+            <span class="pill"><span id="mqtt_dot" class="dot"></span>MQTT <strong id="mqtt_state">检测中</strong></span>
+            <span class="pill"><span id="device_dot" class="dot"></span>设备 <strong id="device_state">离线</strong></span>
+            <span class="pill">最近上报 <strong id="last_update">--</strong> <small id="device_age"></small></span>
+        </div>
+    </header>
+
+    <section class="layout">
+        <div class="main-col">
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">实时状态</h2>
+                    <p class="panel-note" id="device_id">设备：--</p>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric"><label>进水温度</label><strong><span id="temp1">--</span><small id="temp1_unit">--</small></strong></div>
+                    <div class="metric"><label>出水温度</label><strong><span id="temp2">--</span><small id="temp2_unit">--</small></strong></div>
+                    <div class="metric"><label>水压力</label><strong><span id="pressure">--</span><small id="pressure_unit">--</small></strong></div>
+                    <div class="metric"><label>水流量</label><strong><span id="flow">--</span><small id="flow_unit">--</small></strong></div>
+                    <div class="metric" id="pump_card"><label>水泵状态</label><strong><span id="pump_state">--</span></strong></div>
+                    <div class="metric" id="heat_card"><label>加热状态</label><strong><span id="heat_state">--</span></strong></div>
+                    <div class="metric" id="alarm_card"><label>报警状态</label><strong><span id="alarm_state">--</span></strong></div>
+                    <div class="metric"><label>运行模式</label><strong><span id="current_mode">--</span></strong></div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">趋势曲线</h2>
+                        <p class="panel-note">滚轮缩放 · 拖拽平移 · 双击重置</p>
+                    </div>
+                    <div class="chart-tools">
+                        <button class="tool-btn" type="button" id="btn_zoom_in">放大</button>
+                        <button class="tool-btn" type="button" id="btn_zoom_out">缩小</button>
+                        <button class="tool-btn" type="button" id="btn_zoom_reset">重置</button>
+                    </div>
+                </div>
+                <div class="chart-wrap">
+                    <canvas id="myChart"></canvas>
+                </div>
+            </section>
+
+            <section class="panel alarm-summary">
+                <div class="panel-head">
+                    <h2 class="panel-title">设备报警</h2>
+                    <span id="alarm_code" class="alarm-code">CODE 0</span>
+                </div>
+                <p id="alarm_text" class="panel-note">等待设备上报...</p>
+            </section>
+        </div>
+
+        <aside class="side-col">
+            
+            <!-- 历史曲线查询 -->
+            <div class="panel" style="margin-bottom:12px;">
+                <div class="panel-head">
+                    <h2 class="panel-title">历史曲线查询</h2>
+                </div>
+                <div style="padding:0 18px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <label style="font-size:13px;color:var(--muted);">开始时刻</label>
+                    <input type="time" id="histStart" style="padding:4px 6px;font-size:13px;">
+                    <label style="font-size:13px;color:var(--muted);">结束时刻</label>
+                    <input type="time" id="histEnd" style="padding:4px 6px;font-size:13px;">
+                    <button class="tool-btn primary" onclick="queryHistory()">查询</button>
+                    <button class="tool-btn" onclick="realtimeMode()">返回实时</button>
+                </div>
+                <div id="histInfo" style="padding:0 18px 12px;font-size:12px;color:var(--muted);"></div>
+            </div>
+
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">控制操作</h2>
+                    <p class="panel-note">通过后端记录并发布</p>
+                </div>
+                <div class="control-grid">
+                    <button class="btn-on" id="btn_pump_on">开启水泵</button>
+                    <button class="btn-off" id="btn_pump_off">关闭水泵</button>
+                    <button class="btn-on" id="btn_heat_on">开启加热</button>
+                    <button class="btn-off" id="btn_heat_off">关闭加热</button>
+                    <button class="btn-mode" id="btn_auto_mode">切换自动/手动</button>
+                </div>
+                <p class="feedback" id="command_feedback" aria-live="polite">等待操作...</p>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">设备信息</h2>
+                    <p class="panel-note">当前 MQTT 数据源</p>
+                </div>
+                <div class="info-list">
+                    <div class="info-row"><span>后端地址</span><span id="api_base">--</span></div>
+                    <div class="info-row"><span>MQTT地址</span><span id="mqtt_broker">--</span></div>
+                    <div class="info-row"><span>设备编号</span><span id="device_id_side">--</span></div>
+                    <div class="info-row"><span>安全阈值</span><span id="threshold_summary">--</span></div>
+                    <div class="info-row"><span>报警文本</span><span id="fault_text">--</span></div>
+                    <div class="info-row"><span>原始温度</span><span id="temperature_raw">--</span></div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">最近报警</h2>
+                    <p class="panel-note">仅出水温度</p>
+                </div>
+                <div class="threshold-row">
+                    <div class="field"><label for="threshold_min">温度下限 °C</label><input id="threshold_min" type="number" step="0.1" min="-55" max="125"></div>
+                    <div class="field"><label for="threshold_max">温度上限 °C</label><input id="threshold_max" type="number" step="0.1" min="-55" max="125"></div>
+                    <button class="tool-btn primary" id="btn_threshold_save" type="button">保存</button>
+                </div>
+                <div class="filter-row compact">
+                    <div class="field"><label for="alarm_started_from">开始时间</label><input id="alarm_started_from" type="datetime-local" step="1"></div>
+                    <div class="field"><label for="alarm_started_to">结束时间</label><input id="alarm_started_to" type="datetime-local" step="1"></div>
+                    <button class="tool-btn" id="btn_alarm_query" type="button">查询</button>
+                </div>
+                <div class="event-list" id="alarm_list">
+                    <span class="empty">暂无报警记录</span>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">最近控制</h2>
+                    <p class="panel-note">最多显示5条</p>
+                </div>
+                <div class="event-list" id="control_list">
+                    <span class="empty">暂无控制记录</span>
+                </div>
+            </section>
+
+            <!-- ============ 新增：错误日志面板 ============ -->
+            <section class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">
+                            错误日志
+                            <span id="error_badge" class="badge zero">0</span>
+                        </h2>
+                        <p class="panel-note" id="error_note">最多显示5条 · 上限500条</p>
+                    </div>
+                    <div class="chart-tools">
+                        <button class="tool-btn primary" type="button" id="btn_export_log">导出</button>
+                        <button class="tool-btn danger" type="button" id="btn_clear_log">清空</button>
+                    </div>
+                </div>
+                <div class="event-list" id="error_list">
+                    <span class="empty">暂无错误记录</span>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">原始报文</h2>
+                    <p class="panel-note">最近一帧 JSON</p>
+                </div>
+                <pre class="raw-box" id="raw_payload">{}</pre>
+            </section>
+        </aside>
+    </section>
+
+</main>
+
+<script src="./chart.min.js"></script>
+<script src="./frontend_logic.js"></script>
+<script>
+/* =========================================================
+ *  基础配置
+ * =======================================================*/
+const API_BASE = location.protocol === "http:" || location.protocol === "https:"
+    ? location.origin
+    : "http://127.0.0.1:8000";
+const MAX_DATA_LEN = 300;
+const STALE_MS = 15000;
+
+const DEFAULT_WINDOW = 60;
+const MIN_SPAN = 5;
+
+let chartObj = null;
+let lastChartStamp = "";
+// let currentMode = "manual";
+
+let seq = 0;
+let latestX = -1;
+const alarmEdgeTracker = new WaterRaceUI.AlarmEdgeTracker();
+const labelByX = new Map();
+const series = {
+    temp1: [],
+    temp2: [],
+    pressure: [],
+    flow: []
+};
+
+let xMin = null;
+let xMax = null;
+let followLive = true;
+
+const pointerPositions = new Map();
+let dragState = null;
+let pinchState = null;
+let isHistoryMode = false;
+let publicConfig = null;
+let statusRequestInFlight = false;
+let lastChartTimestamp = null;
+//=====新增下面两行=====
+let historySeries = {
+    temp1:[],temp2:[],pressure:[],flow:[]
+};
+const origLabelByX = new Map(); // 保存实时模式的标签映射
+/* =========================================================
+ *  ★ 错误日志模块（纯原生 JS）
+ * =======================================================*/
+const MAX_ERROR_LOGS = 500;
+const errorLogs = [];          // { time, level, source, message, detail }
+
+/**
+ * 记录一条日志
+ * @param {"error"|"warn"|"info"} level  级别
+ * @param {string} source              来源：RUNTIME / API / DEVICE / CONTROL / CHART / EXPORT
+ * @param {string} message             简要消息
+ * @param {string|object} [detail]     详细堆栈或对象
+ */
+function logError(level, source, message, detail = "") {
+    let detailStr = "";
+    try {
+        if (typeof detail === "string") {
+            detailStr = detail;
+        } else if (detail && typeof detail === "object") {
+            if (detail.stack) detailStr = String(detail.stack);
+            else detailStr = JSON.stringify(detail);
+        } else if (detail !== undefined && detail !== null) {
+            detailStr = String(detail);
+        }
+    } catch (e) {
+        detailStr = "[无法序列化的详情]";
+    }
+
+    errorLogs.push({
+        time: formatTime(new Date()),
+        level: level || "error",
+        source: source || "UNKNOWN",
+        message: String(message || "").slice(0, 500),
+        detail: detailStr.slice(0, 2000)
+    });
+
+    if (errorLogs.length > MAX_ERROR_LOGS) errorLogs.shift();
+    renderErrorLog();
+}
+
+function formatTime(d) {
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+           `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.` +
+           `${String(d.getMilliseconds()).padStart(3, "0")}`;
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+}
+
+function renderErrorLog() {
+    const listEl = document.getElementById("error_list");
+    const badgeEl = document.getElementById("error_badge");
+    if (!listEl || !badgeEl) return;
+
+    const total = errorLogs.length;
+    badgeEl.innerText = String(total);
+    badgeEl.classList.toggle("zero", total === 0);
+
+    if (total === 0) {
+        listEl.innerHTML = '<span class="empty">暂无错误记录</span>';
+        return;
+    }
+
+    const recent = errorLogs.slice(-5).reverse();
+    listEl.innerHTML = recent.map(e => `
+        <div class="event level-${escapeHtml(e.level)}">
+            <strong>[${escapeHtml(e.source)}] ${escapeHtml(e.message)}</strong>
+            <time>${escapeHtml(e.time)} · ${escapeHtml(e.level.toUpperCase())}</time>
+        </div>
+    `).join("");
+}
+
+/**
+ * 导出错误日志为 .txt 文件
+ */
+function exportErrorLog() {
+    if (errorLogs.length === 0) {
+        logError("info", "EXPORT", "暂无错误日志可导出");
+        return;
+    }
+
+    const now = new Date();
+    const lines = [];
+    lines.push("========================================================");
+    lines.push("        水循环监控系统 - 错误日志导出");
+    lines.push("========================================================");
+    lines.push(`导出时间   : ${formatTime(now)}`);
+    lines.push(`后端地址   : ${API_BASE}`);
+    lines.push(`设备编号   : ${document.getElementById("device_id_side")?.innerText || "--"}`);
+    lines.push(`设备状态   : ${document.getElementById("device_state")?.innerText || "--"}`);
+    lines.push(`后端状态   : ${document.getElementById("api_state")?.innerText || "--"}`);
+    lines.push(`日志条数   : ${errorLogs.length}`);
+    lines.push(`浏览器信息 : ${navigator.userAgent}`);
+    lines.push("--------------------------------------------------------");
+    lines.push("");
+
+    errorLogs.forEach((e, i) => {
+        lines.push(`【${i + 1}】[${e.time}] [${e.level.toUpperCase()}] [${e.source}]`);
+        lines.push(`   消息: ${e.message}`);
+        if (e.detail) {
+            lines.push(`   详情: ${e.detail.replace(/\n/g, "\n         ")}`);
+        }
+        lines.push("");
+    });
+
+    lines.push("--------------------------------------------------------");
+    lines.push("日志结束");
+
+    const content = lines.join("\n");
+    const blob = new Blob(["\uFEFF" + content], {type: "text/plain;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+
+    const pad = n => String(n).padStart(2, "0");
+    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_` +
+                  `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `error-log-${stamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+    logError("info", "EXPORT", `已导出 ${errorLogs.length} 条日志`, a.download);
+}
+
+function clearErrorLog() {
+    if (errorLogs.length === 0) return;
+    const n = errorLogs.length;
+    errorLogs.length = 0;
+    renderErrorLog();
+    // logError("info", "EXPORT", `已清空 ${n} 条日志`);
+}
+
+/* ---------- 全局错误捕获 ---------- */
+window.addEventListener("error", function (event) {
+    // 资源加载错误（img/script）走不同分支
+    if (event.target && (event.target.tagName === "SCRIPT" || event.target.tagName === "LINK" || event.target.tagName === "IMG")) {
+        logError("error", "RUNTIME", `资源加载失败: ${event.target.src || event.target.href}`, event.target.tagName);
+        return;
+    }
+    logError(
+        "error",
+        "RUNTIME",
+        event.message || "未知运行时错误",
+        `${event.filename || "-"}:${event.lineno || 0}:${event.colno || 0}\n${event.error?.stack || ""}`
+    );
+});
+
+window.addEventListener("unhandledrejection", function (event) {
+    const reason = event.reason;
+    logError(
+        "error",
+        "PROMISE",
+        reason?.message || String(reason || "未处理的 Promise 异常"),
+        reason?.stack || ""
+    );
+});
+
+/* ---------- 带日志的 fetch 包装 ---------- */
+/**
+ * 带超时、错误日志包装fetch
+ * @param {string} url
+ * @param {RequestInit|undefined} options
+ * @param {number} timeoutMs 超时毫秒，默认5000
+ */
+async function safeFetch(url, options, timeoutMs=5000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    const opt = { cache: "no-store", ...(options||{}), signal:controller.signal };
+    try {
+        const resp = await fetch(url, opt);
+        if (!resp.ok) {
+            logError("error", "API", `请求失败 ${resp.status} ${resp.statusText}`, url);
+        }
+        return resp;
+    } catch (err) {
+        if(err.name === "AbortError"){
+            logError("error", "API", `请求超时(${timeoutMs}ms)`, url);
+            throw new Error(`请求超时 ${timeoutMs}ms`);
+        }
+        logError("error", "API", `网络请求异常: ${err.message}`, url);
+        throw err;
+    }finally {
+        clearTimeout(id);
+    }
+}
+
+
+/* =========================================================
+ *  工具函数
+ * =======================================================*/
+function fmtValue(value, digits = 2) {
+    const number = Number(value);
+    if (value === null || value === undefined || !Number.isFinite(number)) return "--";
+    return number.toFixed(digits);
+}
+
+function fmtTemperature(value, digits = 2) {
+    const number = Number(value);
+    //类似上下限
+    if (value === null || value === undefined || !Number.isFinite(number) || number === -99 || number < -55 || number > 125) return "--";
+    return number.toFixed(digits);
+}
+
+function chartTemperature(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number !== -99 && number >= -55 && number <= 125 ? number : null;
+}
+
+function toNumberOrNull(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function setText(id, value) {
+    document.getElementById(id).innerText = value;
+}
+
+function setDot(id, state) {
+    const el = document.getElementById(id);
+    el.classList.remove("ok", "warn", "bad");
+    if (state) el.classList.add(state);
+}
+
+function setMetricState(id, state) {
+    const el = document.getElementById(id);
+    el.classList.remove("state-ok", "state-warn", "state-bad");
+    if (state) el.classList.add(state);
+}
+
+function clamp(value, lo, hi) {
+    return Math.min(Math.max(value, lo), hi);
+}
+/* =========================================================
+ *  图表初始化
+ * =======================================================*/
+function initChart() {
+    const ctx = document.getElementById("myChart").getContext("2d");
+    chartObj = new Chart(ctx, {
+        type: "line",
+        data: {
+            datasets: [
+                {
+                    label: "进水温度 ℃",
+                    data: series.temp1,
+                    borderColor: "#b42318",
+                    backgroundColor: "transparent",
+                    tension: 0.25,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    yAxisID: "y"   // 绑定【左侧Y轴】温度
+                },
+                {
+                    label: "出水温度 ℃",
+                    data: series.temp2,
+                    borderColor: "#2563eb",
+                    backgroundColor: "transparent",
+                    tension: 0.25,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    yAxisID: "y"   // 绑定【左侧Y轴】温度
+                },
+                {
+                    label: "水压力 kPa",
+                    data: series.pressure,
+                    borderColor: "#0f766e",
+                    backgroundColor: "transparent",
+                    tension: 0.25,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    yAxisID: "y2"  // 绑定【右侧Y轴】水压力水流量
+                },
+                {
+                    label: "水流量 L/min",
+                    data: series.flow,
+                    borderColor: "#b7791f",
+                    backgroundColor: "transparent",
+                    tension: 0.25,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    yAxisID: "y2"  // 绑定【右侧Y轴】水压力水流量
+                }
+            ]
+        },
+        options: {
+            devicePixelRatio: window.devicePixelRatio,
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            normalized: true,
+            interaction: {mode: "index", intersect: false},
+            plugins: {
+                legend: {labels: {boxWidth: 12, boxHeight: 12}},
+                tooltip: {
+                    callbacks: {
+                        title: function (items) {
+                            if (!items || !items.length) return "";
+                            const x = Math.round(items[0].parsed.x);
+                            return labelByX.get(x) || `#${x}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: "linear",
+                    min: undefined,
+                    max: undefined,
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        callback: function (value) {
+                            const label = labelByX.get(Math.round(value));
+                            return label || "";
+                        }
+                    },
+                    title: {display: true, text: "时间"}
+                },
+                // ========== 左侧Y轴：温度 ℃ ==========
+                y: {
+                    type: "linear",
+                    position: "left",
+                    title: {display: true, text: "温度 ℃"}
+                },
+                // ========== 右侧Y轴：水压力、水流量 ==========
+                y2: {
+                    type: "linear",
+                    position: "right",
+                    title: {display: true, text: "水压力(kPa) / 水流量(L/min)"},
+                    grid:{
+                        drawOnChartArea: false // 关键！右侧轴不画网格，防止两套网格重叠混乱
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+
+/* =========================================================
+ *  数据写入
+ * =======================================================*/
+function pushChartData(stamp, data) {
+    if (!stamp || stamp === lastChartStamp) return;
+    lastChartStamp = stamp;
+
+    const x = seq++;
+    latestX = x;
+    labelByX.set(x, new Date().toLocaleTimeString());
+
+    series.temp1.push({x: x, y: chartTemperature(data.temp1)});
+    series.temp2.push({x: x, y: chartTemperature(data.temp2)});
+    series.pressure.push({x: x, y: toNumberOrNull(data.pressure)});
+    series.flow.push({x: x, y: toNumberOrNull(data.flow)});
+
+    const cutoff = x - MAX_DATA_LEN + 1;
+    for (const key in series) {
+        const arr = series[key];
+        while (arr.length && arr[0].x < cutoff) arr.shift();
+    }
+    for (const key of labelByX.keys()) {
+        if (key < cutoff) labelByX.delete(key);
+        else break;
+    }
+
+    if (followLive) {
+        if (latestX + 1 < DEFAULT_WINDOW) {
+            xMin = null;
+            xMax = null;
+        } else {
+            const span = (xMin === null || xMax === null) ? DEFAULT_WINDOW : (xMax - xMin);
+            xMax = latestX + 0.5;
+            xMin = xMax - span;
+        }
+        applyView(true);
+    } else {
+        chartObj.update("none");
+    }
+}
+
+/* =========================================================
+ *  缩放 / 平移
+ * =======================================================*/
+function dataBounds() {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const key in series) {
+        const arr = series[key];
+        if (!arr.length) continue;
+        if (arr[0].x < lo) lo = arr[0].x;
+        const last = arr[arr.length - 1].x;
+        if (last > hi) hi = last;
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, DEFAULT_WINDOW];
+    if (hi - lo < MIN_SPAN) hi = lo + MIN_SPAN;
+    return [lo, hi];
+}
+
+function getVisibleRange() {
+    if (xMin !== null && xMax !== null) return [xMin, xMax];
+    const scale = chartObj.scales.x;
+    let lo = scale ? scale.min : 0;
+    let hi = scale ? scale.max : DEFAULT_WINDOW;
+    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+        lo = 0;
+        hi = DEFAULT_WINDOW;
+    }
+    return [lo, hi];
+}
+
+function setWindow(min, max) {
+    const bounds = dataBounds();
+    const dLo = bounds[0];
+    const dHi = bounds[1];
+    const maxSpan = Math.max(MIN_SPAN, (dHi - dLo) + 2);
+
+    let span = max - min;
+    if (!Number.isFinite(span) || span <= 0) span = MIN_SPAN;
+    span = clamp(span, MIN_SPAN, maxSpan);
+
+    let lo = min;
+    const hardLo = dLo - 1;
+    const hardHi = dHi + 1;
+    if (lo + span > hardHi) lo = hardHi - span;
+    if (lo < hardLo) lo = hardLo;
+
+    xMin = lo;
+    xMax = lo + span;
+    followLive = xMax >= dHi - 0.5;
+    applyView(true);
+}
+
+function applyView(fitY) {
+    const scales = chartObj.options.scales;
+    scales.x.min = (xMin === null) ? undefined : xMin;
+    scales.x.max = (xMax === null) ? undefined : xMax;
+    if (fitY) autoFitY();
+    chartObj.update("none");
+}
+
+function autoFitY() {
+    const yScale = chartObj.options.scales.y;
+    const scaleYRight = chartObj.options.scales.y2;
+    if (xMin === null || xMax === null) {
+        yScale.min = undefined;
+        yScale.max = undefined;
+        return;
+    }
+   let yLeftLo = Infinity;
+    let yLeftHi = -Infinity;
+    for(const p of series.temp1){
+        if(p.x >= xMin && p.x <= xMax && typeof p.y === "number" && Number.isFinite(p.y)){
+            if(p.y < yLeftLo) yLeftLo = p.y;
+            if(p.y > yLeftHi) yLeftHi = p.y;
+        }
+    }
+    for(const p of series.temp2){
+        if(p.x >= xMin && p.x <= xMax && typeof p.y === "number" && Number.isFinite(p.y)){
+            if(p.y < yLeftLo) yLeftLo = p.y;
+            if(p.y > yLeftHi) yLeftHi = p.y;
+        }
+    }
+    if(Number.isFinite(yLeftLo) && Number.isFinite(yLeftHi)){
+        const pad = (yLeftHi - yLeftLo)*0.12 || 1;
+        yScale.min = yLeftLo - pad;
+        yScale.max = yLeftHi + pad;
+    }else{
+        yScale.min = undefined;
+        yScale.max = undefined;
+    }
+
+    // -------- 右侧y2轴：统计水压力、水流量 --------
+    let yRightLo = Infinity;
+    let yRightHi = -Infinity;
+    for(const p of series.pressure){
+        if(p.x >= xMin && p.x <= xMax && typeof p.y === "number" && Number.isFinite(p.y)){
+            if(p.y < yRightLo) yRightLo = p.y;
+            if(p.y > yRightHi) yRightHi = p.y;
+        }
+    }
+    for(const p of series.flow){
+        if(p.x >= xMin && p.x <= xMax && typeof p.y === "number" && Number.isFinite(p.y)){
+            if(p.y < yRightLo) yRightLo = p.y;
+            if(p.y > yRightHi) yRightHi = p.y;
+        }
+    }
+    if(Number.isFinite(yRightLo) && Number.isFinite(yRightHi)){
+        const pad = (yRightHi - yRightLo)*0.12 || 1;
+        scaleYRight.min = yRightLo - pad;
+        scaleYRight.max = yRightHi + pad;
+    }else{
+        scaleYRight.min = undefined;
+        scaleYRight.max = undefined;
+    }
+}
+
+function zoomAt(pixelX, factor) {
+    if (!Number.isFinite(factor) || factor <= 0) return;
+    const scale = chartObj.scales.x;
+    if (!scale) return;
+    const range = getVisibleRange();
+    const lo = range[0];
+    const hi = range[1];
+    const span = hi - lo;
+    const anchor = scale.getValueForPixel(pixelX);
+    if (!Number.isFinite(anchor)) return;
+    const ratio = clamp((anchor - lo) / span, 0, 1);
+    const newSpan = span * factor;
+    setWindow(anchor - ratio * newSpan, anchor + (1 - ratio) * newSpan);
+}
+
+function panFrom(origLo, origHi, dxPixels) {
+    const scale = chartObj.scales.x;
+    if (!scale) return;
+    const plotWidth = (scale.right - scale.left) || 1;
+    const span = origHi - origLo;
+    const dValue = (dxPixels / plotWidth) * span;
+    setWindow(origLo - dValue, origHi - dValue);
+}
+
+function zoomAtCenter(factor) {
+    const scale = chartObj.scales.x;
+    if (!scale) return;
+    zoomAt((scale.left + scale.right) / 2, factor);
+}
+
+function resetZoom() {
+    xMin = null;
+    xMax = null;
+    followLive = true;
+    if (latestX + 1 >= DEFAULT_WINDOW) {
+        xMax = latestX + 0.5;
+        xMin = xMax - DEFAULT_WINDOW;
+    }
+    applyView(true);
+}
+
+function bindChartInteractions() {
+    const canvas = document.getElementById("myChart");
+
+    canvas.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const factor = e.deltaY > 0 ? 1.18 : 1 / 1.18;
+        zoomAt(e.clientX - rect.left, factor);
+    }, {passive: false});
+
+    canvas.addEventListener("dblclick", function (e) {
+        e.preventDefault();
+        resetZoom();
+    });
+
+    canvas.addEventListener("pointerdown", function (e) {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        pointerPositions.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+        if (pointerPositions.size === 1) {
+            const range = getVisibleRange();
+            dragState = {startClientX: e.clientX, lo: range[0], hi: range[1], moved: false};
+            pinchState = null;
+            canvas.classList.add("dragging");
+        } else if (pointerPositions.size === 2) {
+            dragState = null;
+            canvas.classList.remove("dragging");
+            startPinch();
+        }
+    });
+
+    canvas.addEventListener("pointermove", function (e) {
+        if (!pointerPositions.has(e.pointerId)) return;
+        pointerPositions.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+        if (pinchState && pointerPositions.size >= 2) {
+            const pts = Array.from(pointerPositions.values());
+            const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            const cx = (pts[0].x + pts[1].x) / 2;
+            if (pinchState.dist > 0 && dist > 0) {
+                const rect = canvas.getBoundingClientRect();
+                zoomAt(cx - rect.left, pinchState.dist / dist);
+            }
+            pinchState.dist = dist;
+            return;
+        }
+
+        if (dragState) {
+            const dx = e.clientX - dragState.startClientX;
+            if (Math.abs(dx) > 3) dragState.moved = true;
+            if (dragState.moved) panFrom(dragState.lo, dragState.hi, dx);
+        }
+    });
+
+    function releasePointer(e) {
+        pointerPositions.delete(e.pointerId);
+        if (pointerPositions.size < 2) pinchState = null;
+
+        if (pointerPositions.size === 0) {
+            dragState = null;
+            canvas.classList.remove("dragging");
+        } else if (pointerPositions.size === 1) {
+            const p = Array.from(pointerPositions.values())[0];
+            const range = getVisibleRange();
+            dragState = {startClientX: p.x, lo: range[0], hi: range[1], moved: true};
+        }
+    }
+
+    canvas.addEventListener("pointerup", releasePointer);
+    canvas.addEventListener("pointercancel", releasePointer);
+    canvas.addEventListener("lostpointercapture", releasePointer);
+
+    document.getElementById("btn_zoom_in").onclick = function () { zoomAtCenter(1 / 1.35); };
+    document.getElementById("btn_zoom_out").onclick = function () { zoomAtCenter(1.35); };
+    document.getElementById("btn_zoom_reset").onclick = function () { resetZoom(); };
+}
+
+function startPinch() {
+    const pts = Array.from(pointerPositions.values());
+    if (pts.length < 2) return;
+    pinchState = {
+        dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+    };
+}
+
+/* =========================================================
+ *  状态刷新
+ * =======================================================*/
+function isFresh(lastUpdate) {
+    return WaterRaceUI.isFreshAt(lastUpdate, Date.now(), STALE_MS);
+}
+
+/* 状态变化去抖，避免每秒刷一条日志 */
+let lastDeviceFresh = null;
+let lastApiOk = null;
+let lastConnectivity = null;
+
+function setControlsAvailability(availability) {
+    const buttonIds = ["btn_pump_on", "btn_pump_off", "btn_heat_on", "btn_heat_off", "btn_auto_mode"];
+    for (const id of buttonIds) {
+        const button = document.getElementById(id);
+        if (!button) continue;
+        button.disabled = !availability.enabled;
+        button.setAttribute("aria-disabled", String(!availability.enabled));
+        button.title = availability.enabled ? "" : availability.reason;
+    }
+    const feedback = document.getElementById("command_feedback");
+    if (!availability.enabled && feedback && !feedback.dataset.pendingCommand) {
+        feedback.innerText = availability.reason;
+    }
+}
+
+function renderConnectivity(data) {
+    const connectivity = WaterRaceUI.deriveConnectivity(data, Date.now(), STALE_MS, lastApiOk !== false);
+    lastConnectivity = connectivity;
+    const mqttConnected = connectivity.mqtt === "connected";
+    setText("mqtt_state", mqttConnected ? "已连接" : "未连接");
+    setDot("mqtt_dot", mqttConnected ? "ok" : "warn");
+    const deviceLabels = {
+        online: "在线",
+        historical: "历史值",
+        stale: "已过期",
+        offline: "离线",
+    };
+    const deviceDotState = connectivity.device === "online" ? "ok" : "warn";
+    setText("device_state", deviceLabels[connectivity.device] || "离线");
+    setDot("device_dot", deviceDotState);
+    setText("device_age", connectivity.dataAgeMs === null ? "" : `（${WaterRaceUI.formatAge(connectivity.dataAgeMs)}）`);
+    setControlsAvailability(WaterRaceUI.getControlAvailability({
+        apiOk: lastApiOk === true,
+        mqttConnected,
+        deviceFresh: connectivity.deviceFresh,
+    }));
+    return connectivity;
+}
+
+function updateStatusUi(data) {
+    publicConfig = data.config || null;
+    const connectivity = renderConnectivity(data);
+    const fresh = connectivity.deviceFresh;
+    const alarm = Number(data.alarm ?? 0);
+    // updateStatusUi函数内部
+    const realMode = data.mode || "manual";
+    setText("current_mode", realMode === "auto" ? "自动" : "手动");
+
+
+    // 设备在线状态变化时记录日志
+    if (lastDeviceFresh !== null && lastDeviceFresh !== fresh) {
+        if (fresh) {
+            logError("info", "DEVICE", "设备恢复在线", `编号: ${data.device_id || "--"}`);
+        } else {
+            logError("warn", "DEVICE", "设备超时或离线", `最后上报: ${data.last_update || "--"}`);
+        }
+    }
+    lastDeviceFresh = fresh;
+
+    // 报警状态变化时记录日志
+    // let lastAlarm = 0;
+    // 在 updateStatusUi 中
+    if (alarmEdgeTracker.update(alarm)) {
+        logError("info", "DEVICE", "报警已恢复", data.fault_text || "");
+    }
+
+    setText("temp1", fmtTemperature(data.temp1));
+    setText("temp2", fmtTemperature(data.temp2));
+    setText("pressure", fmtValue(data.pressure));
+    setText("flow", fmtValue(data.flow));
+    setText("pump_state", Number(data.pump_state) === 1 ? "运行" : "停止");
+    setText("heat_state", Number(data.heat_state) === 1 ? "加热中" : "关闭");
+    setText("alarm_state", alarm === 0 ? "正常" : "报警");
+    // setText("current_mode", currentMode === "auto" ? "自动" : "手动");
+    setText("alarm_text", data.fault_text || (alarm === 0 ? "当前无报警" : `设备报警码 ${alarm}`));
+    setText("alarm_code", `CODE ${alarm}`);
+    setText("last_update", data.last_update || "--");
+    setText("device_id", `设备：${data.device_id || "--"}`);
+    const mqttConfig = publicConfig?.mqtt || {};
+    const units = publicConfig?.units || {};
+    const thresholds = publicConfig?.thresholds || {};
+    setText("mqtt_topic_title", mqttConfig.telemetry_topic || data.mqtt_topic || "--");
+    setText("mqtt_broker", `${mqttConfig.broker || data.mqtt_broker || "--"}:${mqttConfig.port || data.mqtt_port || "--"}`);
+    setText("device_id_side", data.device_id || "--");
+    setText("temp1_unit", units.temp1 || "--");
+    setText("temp2_unit", units.temp2 || "--");
+    setText("pressure_unit", units.pressure || "--");
+    setText("flow_unit", units.flow || "--");
+    setText(
+        "threshold_summary",
+        thresholds.flow_min_for_heating === undefined
+            ? "--"
+            : `水流量≥${thresholds.flow_min_for_heating} ${units.flow}；水压力<${thresholds.pressure_max} ${units.pressure}；温度≤${thresholds.temperature_max} ${units.temperature}`
+    );
+    setText("fault_text", data.fault_text || "无");
+    setText("temperature_raw", fmtTemperature(data.temperature));
+    setText("raw_payload", JSON.stringify(data.raw || {}, null, 2));
+
+    setMetricState("pump_card", Number(data.pump_state) === 1 ? "state-ok" : "");
+    setMetricState("heat_card", Number(data.heat_state) === 1 ? "state-warn" : "");
+    setMetricState("alarm_card", alarm === 0 ? "state-ok" : "state-bad");
+    document.getElementById("alarm_code").classList.toggle("warn", alarm !== 0);
+
+    if (data.last_update && data.last_update !== lastChartTimestamp) {
+        lastChartTimestamp = data.last_update;
+        pushChartData(data.last_update, data);
+    }
+}
+
+async function pollStatus() {
+    if (statusRequestInFlight) return;
+    statusRequestInFlight = true;
+    try {
+        const resp = await safeFetch(`${API_BASE}/api/v1/status`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const jsonData = await resp.json();
+        setText("api_state", "正常");
+        setDot("api_dot", "ok");
+        if (lastApiOk === false) {
+            logError("info", "API", "后端服务已恢复");
+        }
+        lastApiOk = true;
+        updateStatusUi(jsonData);
+    } catch (err) {
+        setText("api_state", "异常");
+        setText("mqtt_state", "未知");
+        setText("device_state", "离线");
+        setDot("api_dot", "bad");
+        setDot("mqtt_dot", "warn");
+        setDot("device_dot", "bad");
+        setText("device_age", "");
+        lastConnectivity = null;
+        setControlsAvailability({enabled: false, reason: "后端接口不可用，暂不能控制设备"});
+        if (lastApiOk !== false) {
+            logError("error", "API", "获取状态失败: " + err.message);
+        }
+        lastApiOk = false;
+    } finally {
+        statusRequestInFlight = false;
+    }
+}
+
+/* =========================================================
+ *  事件列表 & 控制指令
+ * =======================================================*/
+function renderEvents(id, rows, emptyText, formatRow) {
+    const el = document.getElementById(id);
+    if (!Array.isArray(rows) || rows.length === 0) {
+        el.innerHTML = `<span class="empty">${escapeHtml(emptyText)}</span>`;
+        return;
+    }
+    el.innerHTML = rows.slice(0, 5).map(formatRow).join("");
+}
+
+async function pollEvents() {
+    try {
+        const [alarmsResp, controlsResp] = await Promise.all([
+            safeFetch(`${API_BASE}/api/v1/alarms?limit=5`),
+            safeFetch(`${API_BASE}/api/v1/controls?limit=5`)
+        ]);
+        const alarmPayload = alarmsResp.ok ? await alarmsResp.json() : {rows: []};
+        const alarms = alarmPayload.rows || [];
+        const controls = controlsResp.ok ? await controlsResp.json() : [];
+        renderEvents("alarm_list", alarms, "暂无报警记录", row => `
+            <div class="event">
+                <strong>${escapeHtml(row.message || row.alarm_type || "报警")} · ${escapeHtml(fmtValue(row.value))} °C</strong>
+                <time>${escapeHtml(row.timestamp || "--")} · 阈值 ${escapeHtml(fmtValue(row.threshold))} °C · ${row.active ? "报警中" : `已恢复 ${escapeHtml(row.cleared_at || "")}`}</time>
+            </div>
+        `);
+        renderEvents("control_list", controls, "暂无控制记录", row => `
+            <div class="event">
+                <strong>${escapeHtml(row.cmd_summary || row.cmd || "{}")} · ID ${escapeHtml(row.command_id || "--")}</strong>
+                <time>${escapeHtml(row.send_time || "--")} · ${escapeHtml(row.status_text || "--")} · ${escapeHtml(row.ack_result || row.result || "--")}</time>
+            </div>
+        `);
+        updateCommandFeedback(controls);
+    } catch (err) {
+        logError("error", "API", "获取事件记录失败: " + err.message);
+    }
+}
+
+async function responseError(resp, fallback) {
+    const body = await resp.json().catch(() => ({}));
+    return body?.detail?.message || body?.message || fallback || `HTTP ${resp.status}`;
+}
+
+async function loadThresholds() {
+    const resp = await safeFetch(`${API_BASE}/api/v1/temperature-thresholds`);
+    if (!resp.ok) throw new Error(await responseError(resp));
+    const values = await resp.json();
+    document.getElementById("threshold_min").value = values.minimum_c;
+    document.getElementById("threshold_max").value = values.maximum_c;
+}
+
+async function saveThresholds() {
+    const button = document.getElementById("btn_threshold_save");
+    button.disabled = true;
+    try {
+        const resp = await safeFetch(`${API_BASE}/api/v1/temperature-thresholds`, {
+            method: "PUT", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                minimum_c: Number(document.getElementById("threshold_min").value),
+                maximum_c: Number(document.getElementById("threshold_max").value),
+            }),
+        });
+        if (!resp.ok) throw new Error(await responseError(resp, "保存失败"));
+        await loadThresholds();
+        logError("info", "ALARM", "出水温度阈值已保存");
+    } catch (error) {
+        logError("error", "ALARM", `阈值保存失败：${error.message}`);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function queryAlarms() {
+    const query = new URLSearchParams({limit: "50", offset: "0"});
+    const start = document.getElementById("alarm_started_from").value;
+    const end = document.getElementById("alarm_started_to").value;
+    if (start) query.set("start", start);
+    if (end) query.set("end", end);
+    try {
+        const resp = await safeFetch(`${API_BASE}/api/v1/alarms?${query}`);
+        if (!resp.ok) throw new Error(await responseError(resp));
+        const data = await resp.json();
+        renderEvents("alarm_list", data.rows, "暂无报警记录", row => `
+            <div class="event"><strong>${escapeHtml(row.message)} · ${escapeHtml(fmtValue(row.value))} °C</strong>
+            <time>${escapeHtml(row.timestamp)} · 阈值 ${escapeHtml(fmtValue(row.threshold))} °C · ${row.active ? "报警中" : `已恢复 ${escapeHtml(row.cleared_at || "")}`}</time></div>`);
+    } catch (error) {
+        document.getElementById("alarm_list").innerHTML = `<span class="empty">查询失败：${escapeHtml(error.message)}</span>`;
+    }
+}
+
+let pendingCommandId = null;
+
+function updateCommandFeedback(controls) {
+    if (!pendingCommandId || !Array.isArray(controls)) return;
+    const record = controls.find(row => row.command_id === pendingCommandId);
+    if (!record) return;
+    const feedback = document.getElementById("command_feedback");
+    const statusText = record.status_text || record.status || "待设备应答";
+    feedback.innerText = `命令 ${pendingCommandId}：${statusText}`;
+    if (["accepted", "executed", "rejected", "expired"].includes(record.status)) {
+        feedback.dataset.pendingCommand = "";
+        pendingCommandId = null;
+    }
+}
+
+async function sendCommand(cmdBody) {
+    const feedback = document.getElementById("command_feedback");
+    const availability = WaterRaceUI.getControlAvailability({
+        apiOk: lastApiOk === true,
+        mqttConnected: lastConnectivity?.mqtt === "connected",
+        deviceFresh: lastConnectivity?.deviceFresh === true,
+    });
+    if (!availability.enabled) {
+        feedback.innerText = availability.reason;
+        logError("warn", "CONTROL", "控制操作已阻止", availability.reason);
+        return;
+    }
+    feedback.innerText = "正在下发...";
+    try {
+        const resp = await safeFetch(`${API_BASE}/api/v1/control`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(cmdBody)
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const result = await resp.json().catch(() => ({}));
+        pendingCommandId = result.command_id || null;
+        feedback.dataset.pendingCommand = pendingCommandId ? "1" : "";
+        feedback.innerText = pendingCommandId
+            ? `已发布，等待设备ACK（${pendingCommandId}）`
+            : `已发布：${JSON.stringify(cmdBody)}，等待设备ACK`;
+        logError("info", "CONTROL", "控制指令已发布，等待设备ACK", JSON.stringify(cmdBody));
+        pollEvents();
+    } catch (err) {
+        feedback.innerText = "下发失败，请检查后端或MQTT服务";
+        logError("error", "CONTROL", "控制指令下发失败: " + err.message, JSON.stringify(cmdBody));
+    }
+}
+
+function bindButtons() {
+    document.getElementById("btn_pump_on").onclick = () => sendCommand({pump: 1});
+    document.getElementById("btn_pump_off").onclick = () => sendCommand({pump: 0});
+    document.getElementById("btn_heat_on").onclick = () => sendCommand({heater: 1});
+    document.getElementById("btn_heat_off").onclick = () => sendCommand({heater: 0});
+    document.getElementById("btn_auto_mode").onclick = async () => {
+    // 从页面已经渲染好的元素读取当前模式（来自后端，权威来源）
+        const modeText = document.getElementById("current_mode").innerText.trim();
+        let nowMode;
+        if(modeText === "自动"){
+            nowMode = "auto";
+        }else if(modeText === "手动"){
+            nowMode = "manual";
+        }else{
+            // 刚启动，后端数据还没回来，未知状态，不执行切换
+            logError("warn","CONTROL","暂不执行切换",modeText);
+            return;
+        }
+        // 取反得到目标模式
+        const targetMode = nowMode === "auto" ? "manual" : "auto";
+        // 下发指令给后端，页面文字**这里不手动修改！等待pollStatus拉后端真实数据刷新**
+        await sendCommand({mode: targetMode});
+    };
+    document.getElementById("btn_threshold_save").onclick = saveThresholds;
+    document.getElementById("btn_alarm_query").onclick = queryAlarms;
+}
+
+/* =========================================================
+ *  启动
+ * =======================================================*/
+window.onload = function () {
+    setText("api_base", API_BASE);
+    initChart();
+    bindChartInteractions();
+    bindButtons();
+    setControlsAvailability({enabled: false, reason: "等待后端、MQTT和设备状态确认"});
+
+    // 绑定错误日志按钮
+    document.getElementById("btn_export_log").onclick = exportErrorLog;
+    document.getElementById("btn_clear_log").onclick = clearErrorLog;
+
+    // 写一条启动日志
+    logError("info", "RUNTIME", "系统启动", `API=${API_BASE}`);
+
+    pollStatus();
+    pollEvents();
+    loadThresholds().catch(error => logError("error", "ALARM", "读取温度阈值失败", error));
+    setInterval(pollStatus, 500);
+    setInterval(pollEvents, 5000);
+};
+// 历史曲线查询 - 仅查询【今日】的时分
+async function queryHistory() {
+    const startTm = document.getElementById('histStart').value;
+    const endTm = document.getElementById('histEnd').value;
+    const infoEl = document.getElementById("histInfo");
+    if (!startTm || !endTm) {
+        infoEl.textContent = "请填写开始、结束时刻";
+        return;
+    }
+    // 获取今天日期，拼接time，生成完整ISO时间
+    const todayStr = new Date().toISOString().split('T')[0];
+    const startIso = `${todayStr}T${startTm}:00`;
+    const endIso = `${todayStr}T${endTm}:00`;
+
+    const startDate = new Date(startIso);
+    const endDate = new Date(endIso);
+    if(startDate >= endDate){
+        infoEl.textContent = "结束时刻必须晚于开始时刻";
+        return;
+    }
+
+    isHistoryMode = true;
+    followLive = false;
+
+    const url = `${API_BASE}/api/v1/telemetry?limit=1000&start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`;
+    try {
+        const resp = await safeFetch(url);
+        if(!resp.ok) throw new Error(`http ${resp.status}`);
+        const data = await resp.json();
+        const rows = data.rows || [];
+        if(rows.length === 0){
+            infoEl.textContent = "ℹ️该时间段没有查询到数据";
+            return;
+        }
+        // 备份实时模式原始数据
+        origLabelByX.clear();
+        for(const[k,v] of labelByX.entries()) origLabelByX.set(k,v);
+
+        // 清空历史容器
+        historySeries.temp1.length = 0;
+        historySeries.temp2.length = 0;
+        historySeries.pressure.length = 0;
+        historySeries.flow.length = 0;
+        labelByX.clear();
+
+        // 填充历史数据，x=时间戳毫秒
+        rows.forEach(r=>{
+            const ts = new Date(r.timestamp).getTime();
+            // tooltip显示时分
+            const d = new Date(r.timestamp);
+            const label = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            labelByX.set(ts, label);
+
+            historySeries.temp1.push({x:ts, y:chartTemperature(r.temp1)});
+            historySeries.temp2.push({x:ts, y:chartTemperature(r.temp2)});
+            historySeries.pressure.push({x:ts, y:toNumberOrNull(r.pressure)});
+            historySeries.flow.push({x:ts, y:toNumberOrNull(r.flow)});
+        });
+
+        // 将图表数据集替换为历史数据
+        chartObj.data.datasets[0].data = historySeries.temp1;
+        chartObj.data.datasets[1].data = historySeries.temp2;
+        chartObj.data.datasets[2].data = historySeries.pressure;
+        chartObj.data.datasets[3].data = historySeries.flow;
+
+        // x轴改为时间类型
+        chartObj.options.scales.x.type = 'linear';
+        xMin = null;
+        xMax = null;
+        applyView(true);
+        chartObj.update();
+        infoEl.textContent = `查询成功，共${rows.length}条，${startTm} ~ ${endTm}(今日)`;
+
+    } catch (e) {
+        infoEl.textContent = `查询失败：${e.message}`;
+        logError("error","API","历史查询异常",e.message);
+    }
+}
+
+// 返回实时模式，恢复实时数据流
+function realtimeMode() {
+    isHistoryMode = false;
+    followLive = true;
+    document.getElementById('histInfo').textContent = '';
+    // 恢复实时原始series和label映射
+    labelByX.clear();
+    for(const [k,v] of origLabelByX.entries()) labelByX.set(k,v);
+
+    chartObj.data.datasets[0].data = series.temp1;
+    chartObj.data.datasets[1].data = series.temp2;
+    chartObj.data.datasets[2].data = series.pressure;
+    chartObj.data.datasets[3].data = series.flow;
+
+    chartObj.options.scales.x.type = "linear";
+    resetZoom();
+    chartObj.update();
+}
+
+
+</script>
+</body>
+</html>

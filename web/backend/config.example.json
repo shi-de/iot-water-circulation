@@ -1,0 +1,14 @@
+{
+  "mqtt_broker": "192.0.2.10",
+  "mqtt_port": 1883,
+  "mqtt_topic_sub": "watercycle/device/telemetry",
+  "mqtt_topic_pub": "watercycle/device/control",
+  "mqtt_client_id": "watercycle-backend-001",
+  "mqtt_user": "",
+  "mqtt_password": "",
+  "device_id": "watercycle-001",
+  "flow_min_lpm": 0.5,
+  "pressure_max_kpa": 500.0,
+  "temperature_min_c": 0.0,
+  "temperature_max_c": 60.0
+}

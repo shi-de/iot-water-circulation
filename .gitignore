@@ -1,0 +1,22 @@
+# Local credentials and runtime data
+.env
+.env.*
+!.env.example
+web/backend/config.json
+*.db
+*.db-*
+*.sqlite*
+*.pem
+*.key
+# Generated files
+.pio/
+.vscode/
+node_modules/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.log
+.venv/
+venv/
+build/
+tmp/
